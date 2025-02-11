@@ -5,144 +5,116 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Linq;
+using HydrusApp.Models;
+using System.Text.Json.Serialization;
 
-public class HydrusUtils
+public static class HydrusUtils
 {
-    private readonly HttpClient _client;
-    private readonly string _apiKey;
-    private readonly string _baseUrl;
+    private static readonly string _baseUrl = "http://127.0.0.1:45869";
+    private static readonly string _apiKey = "5a880bb8e976458d386516747c4cb070be8da0464789d1415b1c87c76660648d";
 
-    public HydrusUtils(string apiKey, string baseUrl = "http://localhost:45869")
+    public static async Task<List<Page>> GetPages()
     {
-        _apiKey = apiKey;
-        _baseUrl = baseUrl;
-        _client = new HttpClient();
-        _client.DefaultRequestHeaders.Add("Hydrus-Client-API-Access-Key", apiKey);
-    }
-
-    public async Task<Dictionary<string, HashSet<string>>> GetSourceTags(string fileHash)
-    {
-        // Get file metadata which includes tags
-        var response = await _client.GetAsync($"{_baseUrl}/get_files/file_metadata?hash={fileHash}");
-        response.EnsureSuccessStatusCode();
-
-        var content = await response.Content.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(content);
-        var metadata = doc.RootElement.GetProperty("metadata")[0];
-        
-        var result = new Dictionary<string, HashSet<string>>();
-
-        // Extract tags from each service
-        if (metadata.TryGetProperty("tags", out var tagsElement))
-        {
-            foreach (var serviceProperty in tagsElement.EnumerateObject())
-            {
-                var serviceKey = serviceProperty.Name;
-                var serviceTags = new HashSet<string>();
-
-                // Get storage tags (raw tags before processing)
-                if (serviceProperty.Value.TryGetProperty("storage_tags", out var storageTags))
-                {
-                    foreach (var statusProperty in storageTags.EnumerateObject())
-                    {
-                        var tagArray = statusProperty.Value.EnumerateArray();
-                        foreach (var tag in tagArray)
-                        {
-                            var tagString = tag.GetString();
-                            if (tagString != null)
-                            {
-                                serviceTags.Add(tagString);
-                            }
-                        }
-                    }
-                }
-
-                if (serviceTags.Count > 0)
-                {
-                    result[serviceKey] = serviceTags;
-                }
-            }
-        }
-
-        return result;
-    }
-
-
-    public async Task<List<Page>> GetPages()
-    {
+        string content = string.Empty;
         try
         {
-            var response = await _client.GetAsync($"{_baseUrl}/manage_pages/get_pages");
-            response.EnsureSuccessStatusCode();
-            
-            var jsonResponse = await response.Content.ReadAsStringAsync();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("Hydrus-Client-API-Access-Key", _apiKey);
+
+            var response = await client.GetAsync($"{_baseUrl}/manage_pages/get_pages");
+            content = await response.Content.ReadAsStringAsync();
             Console.WriteLine("Got response from API");
-            
-            var options = new JsonSerializerOptions 
-            { 
-                PropertyNameCaseInsensitive = false // We're using explicit property names now
-            };
-            
-            using var document = JsonDocument.Parse(jsonResponse);
-            var root = document.RootElement;
-            var pagesObject = root.GetProperty("pages");
-            
-            Console.WriteLine("Parsed JSON document");
-            
-            // First, deserialize the top-level page
-            var topPage = JsonSerializer.Deserialize<Page>(pagesObject.GetRawText(), options);
-            
-            if (topPage == null)
+            Console.WriteLine($"Response status: {response.StatusCode}");
+            Console.WriteLine($"Response content length: {content.Length}");
+            Console.WriteLine($"First 100 characters of response: {content.Substring(0, Math.Min(100, content.Length))}");
+
+            var options = new JsonSerializerOptions
             {
-                throw new InvalidOperationException("Failed to deserialize top-level page");
+                PropertyNameCaseInsensitive = true,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                WriteIndented = true
+            };
+
+            var pagesResponse = JsonSerializer.Deserialize<PagesResponse>(content, options);
+            if (pagesResponse?.RootPage == null)
+            {
+                Console.WriteLine("Warning: API returned null response");
+                return new List<Page>();
             }
-            
-            Console.WriteLine($"Deserialized top page: {topPage.Name}");
-            
-            // Flatten the hierarchical structure to get all pages
+
             var allPages = new List<Page>();
-            FlattenPages(topPage, allPages);
-            
-            Console.WriteLine($"Flattened {allPages.Count} pages");
+            CollectPages(pagesResponse.RootPage, allPages);
+            Console.WriteLine($"Found {allPages.Count} pages");
             return allPages;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in GetPages: {ex.GetType().Name} - {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            Console.WriteLine($"Error deserializing response: {ex.Message}");
+            Console.WriteLine($"Full response content: {content}");
             throw;
         }
     }
 
-    private void FlattenPages(Page page, List<Page> allPages)
+    private static void CollectPages(Page page, List<Page> allPages)
     {
         allPages.Add(page);
         if (page.Pages != null)
         {
             foreach (var subPage in page.Pages)
             {
-                FlattenPages(subPage, allPages);
+                CollectPages(subPage, allPages);
             }
         }
     }
 
-    public async Task AddFileToPage(string pageKey, string fileHash)
+    public static async Task<string> GetPageKeyByPath(string path)
     {
-        var content = new
+        var pages = await GetPages();
+        
+        // First, check if the path is already a page key
+        foreach (var page in pages)
         {
-            page_key = pageKey,
-            hash = fileHash
-        };
+            if (page.PageKey == path)
+            {
+                return page.PageKey;
+            }
+        }
         
-        var json = JsonSerializer.Serialize(content);
-        var stringContent = new StringContent(
-            json, 
-            Encoding.UTF8, 
-            "application/json"
-        );
+        // If not a page key, try to find by name
+        var pathParts = path.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        var currentPage = pages.FirstOrDefault(p => p.Name.Equals(pathParts[0], StringComparison.OrdinalIgnoreCase));
         
-        var response = await _client.PostAsync("http://localhost:45869/manage_pages/add_files", stringContent);
-        response.EnsureSuccessStatusCode();
+        if (currentPage == null)
+        {
+            throw new Exception($"Could not find page with name: {pathParts[0]}");
+        }
+
+        for (int i = 1; i < pathParts.Length; i++)
+        {
+            var nextPage = currentPage.Pages?.FirstOrDefault(p => p.Name.Equals(pathParts[i], StringComparison.OrdinalIgnoreCase));
+            if (nextPage == null)
+            {
+                throw new Exception($"Could not find page with name: {pathParts[i]} under {currentPage.Name}");
+            }
+            currentPage = nextPage;
+        }
+
+        return currentPage.PageKey;
+    }
+
+    public static async Task AddFileToPage(string pageKey, string fileHash)
+    {
+        using var client = new HttpClient();
+        client.DefaultRequestHeaders.Add("Hydrus-Client-API-Access-Key", _apiKey);
+
+        var content = new StringContent($"{{\"hash\": \"{fileHash}\", \"page_key\": \"{pageKey}\"}}", System.Text.Encoding.UTF8, "application/json");
+        var response = await client.PostAsync($"{_baseUrl}/add_files/add_file_to_page", content);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"Failed to add file to page: {response.StatusCode}");
+        }
     }
 }
 
@@ -152,27 +124,26 @@ public class Page
     public string? Name { get; set; }
     
     [JsonPropertyName("page_key")]
-    public string? PageKey { get; set; }
-    
-    [JsonPropertyName("page_state")]
-    public int PageState { get; set; }
-    
-    [JsonPropertyName("page_type")]
-    public int PageType { get; set; }
-    
-    [JsonPropertyName("is_media_page")]
-    public bool IsMediaPage { get; set; }
-    
-    [JsonPropertyName("selected")]
-    public bool Selected { get; set; }
+    public string PageKey { get; set; } = string.Empty;
     
     [JsonPropertyName("pages")]
-    public List<Page>? Pages { get; set; }
+    public List<Page> Pages { get; set; } = new List<Page>();
+    
+    [JsonPropertyName("page_state")]
+    public PageState? PageState { get; set; }
 }
 
 public class PagesResponse
 {
-    public Page? Pages { get; set; }
-    public int Version { get; set; }
-    public int HydrusVersion { get; set; }
+    [JsonPropertyName("pages")]
+    public List<Page> Pages { get; set; } = new List<Page>();
+
+    [JsonPropertyName("root_page")]
+    public Page? RootPage { get; set; }
+}
+
+public class PageState
+{
+    [JsonPropertyName("is_media_page")]
+    public bool IsMediaPage { get; set; }
 }

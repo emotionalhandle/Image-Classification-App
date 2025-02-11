@@ -12,3 +12,4 @@ C:\Users\Squishy\Documents\GitHub\Image-Classification-App\HydrusApp\obj\Debug\n
 C:\Users\Squishy\Documents\GitHub\Image-Classification-App\HydrusApp\obj\Debug\net8.0\HydrusApp.pdb
 C:\Users\Squishy\Documents\GitHub\Image-Classification-App\HydrusApp\obj\Debug\net8.0\HydrusApp.genruntimeconfig.cache
 C:\Users\Squishy\Documents\GitHub\Image-Classification-App\HydrusApp\obj\Debug\net8.0\ref\HydrusApp.dll
+C:\Users\Squishy\Documents\GitHub\Image-Classification-App\HydrusApp\obj\Debug\net8.0\HydrusApp.sourcelink.json

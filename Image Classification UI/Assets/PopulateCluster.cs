@@ -12,6 +12,9 @@ public class PopulateCluster : MonoBehaviour
     public RectTransform recommendedContent;
     public GameObject imagePrefab; // Prefab for the image to spawn
 
+    private string currentSource;
+    private string predictedClass;
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -93,6 +96,23 @@ public class PopulateCluster : MonoBehaviour
         }
 
         return result.ToArray();
+    }
+
+    // This method will be called after instantiating the prefab
+    public void Initialize(string source, string predClass)
+    {
+        currentSource = source;
+        predictedClass = predClass;
+
+        // Load reference images for this predicted class
+        string txtFilePath = Path.Combine(@"C:\Users\Squishy\Documents\image_classification\Reference Clusters", $"{predictedClass}.txt");
+        LoadImagesFromFile(txtFilePath);
+    }
+
+    // This method will be called to add a new image to this cluster
+    public void AddImage(string imagePath)
+    {
+        SpawnImage(imagePath);
     }
 
     private void LoadImagesFromFile(string filePath)

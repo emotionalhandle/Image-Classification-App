@@ -1,65 +1,37 @@
 ﻿using System;
-using System.Net.Http;
-using System.Text.Json;
 using System.Threading.Tasks;
-using System.Collections.Generic;
-using System.Text;
+using HydrusApp.Models;
 
 class Program
 {
     static async Task Main(string[] args)
     {
-        try 
+        try
         {
-            var hydrus = new HydrusUtils("5a880bb8e976458d386516747c4cb070be8da0464789d1415b1c87c76660648d");
-            var fileHash = "d576f9bb83d47cb7500a0076c913bab411cdec2fd6fb26b4972c617c0b157205";
-            
-            Console.WriteLine("Getting pages from Hydrus...");
-            var pages = await hydrus.GetPages();
-            Console.WriteLine($"Found {pages.Count} pages in total");
-            
-            string targetPageKey = null;
-            
-            foreach (var page in pages)
-            {
-                Console.WriteLine($"Checking page: {page.Name} (Key: {page.PageKey})");
-                if (page.Name?.ToLower() == "testpage")
-                {
-                    Console.WriteLine($"Found testpage:");
-                    Console.WriteLine($"  Name: {page.Name}");
-                    Console.WriteLine($"  PageKey: {page.PageKey}");
-                    Console.WriteLine($"  IsMediaPage: {page.IsMediaPage}");
-                    Console.WriteLine($"  PageType: {page.PageType}");
-                    Console.WriteLine($"  PageState: {page.PageState}");
-                    targetPageKey = page.PageKey;
-                    break;
-                }
-            }
-            
-            if (targetPageKey == null)
-            {
-                Console.WriteLine("Could not find testpage! Available pages:");
-                foreach (var page in pages)
-                {
-                    if (page.Name?.Contains("test", StringComparison.OrdinalIgnoreCase) == true)
-                    {
-                        Console.WriteLine($"- {page.Name} (Key: {page.PageKey}, IsMediaPage: {page.IsMediaPage})");
-                    }
-                }
-                return;
-            }
+            string pagePath = "top page middle final page";
+            string fileHash = "d576f9bb83d47cb7500a0076c913bab411cdec2fd6fb26b4972c617c0b157205";
 
-            Console.WriteLine($"Adding file {fileHash} to page {targetPageKey}...");
-            await hydrus.AddFileToPage(targetPageKey, fileHash);
-            Console.WriteLine("Successfully added file to testpage");
+            // Get all pages and find the target page
+            var pages = await HydrusUtils.GetPages();
+            Console.WriteLine($"Found {pages.Count} pages total");
+
+            // Get the page key for the specified path
+            Console.WriteLine($"Looking for page with path/key: {pagePath}");
+            var pageKey = await HydrusUtils.GetPageKeyByPath(pagePath);
+            Console.WriteLine($"Found page key: {pageKey}");
+
+            // Add the file to the page
+            Console.WriteLine($"Adding file {fileHash} to page {pageKey}...");
+            await HydrusUtils.AddFileToPage(pageKey, fileHash);
+            Console.WriteLine("File added successfully");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error: {ex.GetType().Name} - {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            Console.WriteLine($"Error: {ex.Message}");
         }
     }
 }
+
 
 
 
