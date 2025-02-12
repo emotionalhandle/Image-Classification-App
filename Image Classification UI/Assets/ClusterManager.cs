@@ -26,10 +26,10 @@ public class ClusterManager : MonoBehaviour
             .Distinct()
             .ToList();
 
-        // Create only the first cluster
-        if (predictedClasses.Count > 0)
+        // Create only the first two clusters
+        for (int i = 0; i < Mathf.Min(2, predictedClasses.Count); i++)
         {
-            var predClass = predictedClasses[0];
+            var predClass = predictedClasses[i];
             
             // Instantiate the cluster prefab
             GameObject clusterObj = Instantiate(clusterPrefab, clusterContainer);

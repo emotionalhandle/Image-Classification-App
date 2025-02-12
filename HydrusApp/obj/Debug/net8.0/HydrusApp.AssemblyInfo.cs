@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("HydrusApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a400c3974ac9030aabe87ea0957ca424310e2892")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ec248748d4fcb60ba56a825e5e5efbb356baa06a")]
 [assembly: System.Reflection.AssemblyProductAttribute("HydrusApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("HydrusApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
